@@ -7,6 +7,8 @@ use League\OAuth2\Client\Provider\AbstractProvider;
 
 class Mailru extends AbstractProvider
 {
+    public $uidKey = 'x_mailru_vid';
+
     public function urlAuthorize()
     {
         return 'https://connect.mail.ru/oauth/authorize';
