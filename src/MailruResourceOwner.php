@@ -7,12 +7,17 @@ use League\OAuth2\Client\Provider\ResourceOwnerInterface;
 class MailruResourceOwner implements ResourceOwnerInterface
 {
     /**
+     * Response
+     *
      * @var array
      */
     private $response;
 
     /**
+     * Class constructor
+     *
      * @param array $response
+     * @return void
      */
     public function __construct(array $response)
     {
@@ -28,7 +33,9 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * @return string
+     * User's email address
+     *
+     * @return string Email address
      */
     public function getEmail()
     {
@@ -36,7 +43,11 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * @return string
+     * User's full name.
+     *
+     * Concatenated from first name and last name
+     *
+     * @return string Full name
      */
     public function getName()
     {
@@ -44,7 +55,9 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * @return string
+     * User's first name
+     *
+     * @return string First name
      */
     public function getFirstName()
     {
@@ -52,7 +65,9 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * @return string
+     * User's last name
+     *
+     * @return string Last name
      */
     public function getLastName()
     {
@@ -60,15 +75,19 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-    * @return string
-    */
+     * User's nickname
+     *
+     * @return string Nickname
+     */
     public function getNickname()
     {
         return $this->response['nick'];
     }
 
     /**
-     * @return string
+     * User's profile picture url
+     *
+     * @return string Profile picture url
      */
     public function getImageUrl()
     {
@@ -76,7 +95,9 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * @return string
+     * User's gender
+     *
+     * @return string Gender
      */
     public function getGender()
     {
@@ -84,7 +105,8 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * Get the country
+     * User's country
+     *
      * @return string Country name
      */
     public function getCountry()
@@ -94,8 +116,9 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * Get the country
-     * @return string Country name
+     * User's city
+     *
+     * @return string City name
      */
     public function getCity()
     {
@@ -104,14 +127,17 @@ class MailruResourceOwner implements ResourceOwnerInterface
     }
 
     /**
-     * Get user's location as [Country, City]
+     * User's location
+     *
+     * Returns city or concatenation of country and city
+     *
      * @return string Location
      */
     public function getLocation()
     {
         $country = $this->getCountry();
         $city = $this->getCity();
-        
+
         return (empty($country)) ? $city : $country . ', ' . $city;
     }
 

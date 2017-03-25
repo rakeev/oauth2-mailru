@@ -8,16 +8,25 @@ use Psr\Http\Message\ResponseInterface;
 
 class Mailru extends AbstractProvider
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getBaseAuthorizationUrl()
     {
         return 'https://connect.mail.ru/oauth/authorize';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getBaseAccessTokenUrl(array $params)
     {
         return 'https://connect.mail.ru/oauth/token';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getResourceOwnerDetailsUrl(AccessToken $token)
     {
         $param = 'app_id=' . $this->clientId . '&method=users.getInfo&secure=1&session_key=' . $token->getToken();
