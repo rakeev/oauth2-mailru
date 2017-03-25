@@ -1,78 +1,186 @@
 <?php
 namespace Aego\OAuth2\Client\Test\Provider;
 
+use Aego\OAuth2\Client\Provider\Mailru;
+use Aego\OAuth2\Client\Provider\MailruResourceOwner;
+
 class MailruTest extends \PHPUnit_Framework_TestCase
 {
+    /**
+     * Sample JSON response
+     *
+     * @var array
+     */
     protected $response;
-    protected $provider;
-    protected $token;
 
+    /**
+     * Mail.ru instance provider
+     *
+     * @var Aego\OAuth2\Client\Provider\Mailru
+     */
+    protected $provider;
+
+    /**
+     * Setup this unit test
+     *
+     * @return void
+     */
     protected function setUp()
     {
-        $this->response = json_decode('[{"uid":"1234567890123456789","email":"username@mail.ru","sex":0,'
-            .'"has_pic":1,"pic":"http://mock.ph/oto.jpg","first_name":"First","last_name":"Last",'
-            .'"location":{"country":{"name":"Россия","id":"24"},"city":{"name":"Тольятти","id":"561"},'
-            .'"region":{"name":"Самарская обл.","id":"246"}},"link":"http://my.mail.ru/mail/username/"}]');
-        $this->provider = new \Aego\OAuth2\Client\Provider\Mailru([
-            'clientId' => 'mock',
+        // Response example taken from: http://api.mail.ru/docs/reference/rest/users-getinfo/
+        $this->response = '[{"uid":"15410773191172635989","first_name":"Евгений","last_name":"Маслов",'
+            .'"nick":"maslov","email":"emaslov@mail.ru","sex":0,"birthday":"15.02.1980",'
+            .'"has_pic":1,"pic":"http://avt.appsmail.ru/mail/emaslov/_avatar",'
+            .'"pic_small":"http://avt.appsmail.ru/mail/emaslov/_avatarsmall",'
+            .'"pic_big":"http://avt.appsmail.ru/mail/emaslov/_avatarbig",'
+            .'"link":"http://my.mail.ru/mail/emaslov/","referer_type":"","referer_id":"",'
+            .'"is_online":1,"friends_count":145,"is_verified":1,"vip":0,"app_installed":1,'
+            .'"location":{"country":{"name":"Россия","id":"24"},"city":{"name":"Москва","id":'
+            .'"25"},"region":{"name":"Москва","id":"999999"}}}]';
+
+        $this->provider = new Mailru([
+            'clientId' => 'mock_client_id',
             'clientSecret' => 'mock_secret',
             'redirectUri' => 'none',
         ]);
-        $this->token = new \League\OAuth2\Client\Token\AccessToken([
-            'access_token' => 'mock_token',
-        ]);
+
+        parent::setUp();
     }
 
-    public function testUrlUserDetails()
+    /**
+     * Tear down this unit test
+     *
+     * @return void
+     */
+    protected function tearDown()
     {
-        $query = parse_url($this->provider->urlUserDetails($this->token), PHP_URL_QUERY);
-        parse_str($query, $param);
-
-        $this->assertEquals($this->token->accessToken, $param['session_key']);
-        $this->assertEquals($this->provider->clientId, $param['app_id']);
-        $this->assertNotEmpty($param['sig']);
+        $this->provider = null;
+        $this->response = null;
     }
 
-    public function testUserDetails()
+    /**
+     * Test base url
+     *
+     * @return void
+     */
+    public function testGetBaseAccessTokenUrl()
     {
-        $user = $this->provider->userDetails($this->response, $this->token);
-        $this->assertInstanceOf('League\\OAuth2\\Client\\Entity\\User', $user);
-        $res = $this->response[0];
-        $this->assertEquals($res->uid, $user->uid);
-        $this->assertEquals($res->email, $user->email);
-        $this->assertEquals($res->location->city->name, $user->location);
-        $this->assertEquals($res->first_name.' '.$res->last_name, $user->name);
-        $this->assertEquals($res->first_name, $user->firstName);
-        $this->assertEquals($res->last_name, $user->lastName);
-        $this->assertEquals($res->pic, $user->imageUrl);
-        $this->assertEquals('male', $user->gender);
-        $this->assertNotEmpty($user->urls);
+        $this->assertEquals('https://connect.mail.ru/oauth/token', $this->provider->getBaseAccessTokenUrl([]));
     }
 
-    public function testUserDetailsEmpty()
+    /**
+     * Test authorization url request
+     *
+     * @return void
+     */
+    public function testGetAuthorizationUrl()
     {
-        $this->response[0]->has_pic = 0;
-        unset($this->response[0]->location);
-        $user = $this->provider->userDetails($this->response, $this->token);
-        $this->assertEmpty($user->location);
-        $this->assertEmpty($user->imageUrl);
+        $uri = parse_url($this->provider->getAuthorizationUrl());
+        parse_str($uri['query'], $query);
+
+        $this->assertEquals('connect.mail.ru', $uri['host']);
+        $this->assertEquals('/oauth/authorize', $uri['path']);
+
+        $this->assertArrayHasKey('client_id', $query);
+        $this->assertArrayHasKey('response_type', $query);
+        $this->assertArrayHasKey('state', $query);
+        $this->assertEquals('code', $query['response_type']);
+
+        $this->assertNotNull($this->provider->getState());
     }
 
-    public function testUserUid()
+    /**
+     * Test access token
+     *
+     * @return void
+     */
+    public function testGetAccessToken()
     {
-        $uid = $this->provider->userUid($this->response, $this->token);
-        $this->assertEquals($this->response[0]->uid, $uid);
+        $response = $this->getMock('Psr\Http\Message\ResponseInterface');
+
+        $response->expects($this->any())
+            ->method('getBody')
+            ->willReturn('{"access_token":"mock_access_token","token_type":"bearer","expires_in":3600}');
+
+        $response->expects($this->any())
+            ->method('getHeader')
+            ->willReturn(['content-type' => 'json']);
+
+        $response->expects($this->any())
+            ->method('getStatusCode')
+            ->willReturn(200);
+
+        $client = $this->getMock('GuzzleHttp\ClientInterface');
+        $this->provider->setHttpClient($client);
+        $client->expects($this->once())
+            ->method('send')
+            ->willReturn($response);
+
+        $token = $this->provider->getAccessToken('authorization_code', ['code' => 'mock_authorization_code']);
+        $this->assertEquals('mock_access_token', $token->getToken());
+        $this->assertGreaterThan(time(), $token->getExpires());
+        $this->assertNull($token->getRefreshToken());
+        $this->assertNull($token->getResourceOwnerId());
     }
 
-    public function testUserEmail()
+    /**
+     * Test resource owner request
+     *
+     * @return void
+     */
+    public function testGetResourceOwnerDetailsUrl()
     {
-        $email = $this->provider->userEmail($this->response, $this->token);
-        $this->assertEquals($this->response[0]->email, $email);
+        $test_uri = 'app_id=mock_client_id&method=users.getInfo&secure=1&session_key=mock_access_token';
+        $test_sig = md5(str_replace('&', '', $test_uri) . 'mock_secret');
+        $test_url = 'http://www.appsmail.ru/platform/api?' . $test_uri . '&sig=' . $test_sig;
+
+        $token = $this->getMockBuilder('League\OAuth2\Client\Token\AccessToken')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $token->expects($this->once())
+            ->method('getToken')
+            ->willReturn('mock_access_token');
+
+        $url = $this->provider->getResourceOwnerDetailsUrl($token);
+        $this->assertEquals($test_url, $url);
     }
 
-    public function testUserScreenName()
+    /**
+     * Test MailruResourceOwner
+     *
+     * @return void
+     */
+    public function testGetResourceOwner()
     {
-        $name = $this->provider->userScreenName($this->response, $this->token);
-        $this->assertEquals([$this->response[0]->first_name, $this->response[0]->last_name], $name);
+        $response = json_decode($this->response, true);
+
+        $token = $this->getMockBuilder('League\OAuth2\Client\Token\AccessToken')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $provider = $this->getMockBuilder(Mailru::class)
+            ->setMethods(array('fetchResourceOwnerDetails'))
+            ->getMock();
+
+        $provider->expects($this->once())
+            ->method('fetchResourceOwnerDetails')
+            ->with($this->identicalTo($token))
+            ->willReturn($response);
+
+        $resource = $provider->getResourceOwner($token);
+
+        $this->assertInstanceOf(MailruResourceOwner::class, $resource);
+        $this->assertEquals('15410773191172635989', $resource->getId());
+        $this->assertEquals('emaslov@mail.ru', $resource->getEmail());
+        $this->assertEquals('Евгений Маслов', $resource->getName());
+        $this->assertEquals('Евгений', $resource->getFirstName());
+        $this->assertEquals('Маслов', $resource->getLastName());
+        $this->assertEquals('maslov', $resource->getNickname());
+        $this->assertEquals('http://avt.appsmail.ru/mail/emaslov/_avatar', $resource->getImageUrl());
+        $this->assertEquals('male', $resource->getGender());
+        $this->assertEquals('Россия', $resource->getCountry());
+        $this->assertEquals('Москва', $resource->getCity());
+        $this->assertEquals('Россия, Москва', $resource->getLocation());
     }
 }
