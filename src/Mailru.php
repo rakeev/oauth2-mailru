@@ -1,63 +1,56 @@
 <?php
 namespace Aego\OAuth2\Client\Provider;
 
-use League\OAuth2\Client\Entity\User;
-use League\OAuth2\Client\Token\AccessToken;
 use League\OAuth2\Client\Provider\AbstractProvider;
+use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
+use League\OAuth2\Client\Token\AccessToken;
+use Psr\Http\Message\ResponseInterface;
 
 class Mailru extends AbstractProvider
 {
-    public $uidKey = 'x_mailru_vid';
-
-    public function urlAuthorize()
+    public function getBaseAuthorizationUrl()
     {
         return 'https://connect.mail.ru/oauth/authorize';
     }
 
-    public function urlAccessToken()
+    public function getBaseAccessTokenUrl(array $params)
     {
         return 'https://connect.mail.ru/oauth/token';
     }
 
-    public function urlUserDetails(AccessToken $token)
+    public function getResourceOwnerDetailsUrl(AccessToken $token)
     {
-        $param = 'app_id='.$this->clientId.'&method=users.getInfo&secure=1&session_key='.$token;
-        $sign = md5(str_replace('&', '', $param).$this->clientSecret);
-        return 'http://www.appsmail.ru/platform/api?'.$param.'&sig='.$sign;
+        $param = 'app_id=' . $this->clientId . '&method=users.getInfo&secure=1&session_key=' . $token->getToken();
+        $sign = md5(str_replace('&', '', $param) . $this->clientSecret);
+        return 'http://www.appsmail.ru/platform/api?' . $param . '&sig=' . $sign;
     }
 
-    public function userDetails($response, AccessToken $token)
+    /**
+     * {@inheritdoc}
+     */
+    protected function getDefaultScopes()
     {
-        $user = new User;
-        $res = $response[0];
-        $user->uid = $res->uid;
-        $user->email = $res->email;
-        $user->firstName = $res->first_name;
-        $user->lastName = $res->last_name;
-        $user->name = $user->firstName.' '.$user->lastName;
-        $user->gender = $res->sex?'female':'male';
-        $user->urls = $res->link;
-        if (isset($res->location)) {
-            $user->location = $res->location->city->name;
+        return [];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function checkResponse(ResponseInterface $response, $data)
+    {
+        if (isset($data['error_code'])) {
+            throw new IdentityProviderException($data['error_msg'], $data['error_code'], $response);
+        } elseif (isset($data['error'])) {
+            throw new IdentityProviderException($data['error'],
+                $response->getStatusCode(), $response);
         }
-        if ($res->has_pic) {
-            $user->imageUrl = $res->pic;
-        }
-        return $user;
     }
 
-    public function userUid($response, AccessToken $token)
+    /**
+     * {@inheritdoc}
+     */
+    protected function createResourceOwner(array $response, AccessToken $token)
     {
-        return $response[0]->uid;
-    }
-
-    public function userEmail($response, AccessToken $token)
-    {
-        return $response[0]->email;
-    }
-
-    public function userScreenName($response, AccessToken $token)
-    {
-        return [$response[0]->first_name, $response[0]->last_name];
+        return new MailruResourceOwner($response);
     }
 }
