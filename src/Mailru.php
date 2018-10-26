@@ -13,7 +13,7 @@ class Mailru extends AbstractProvider
      */
     public function getBaseAuthorizationUrl()
     {
-        return 'https://connect.mail.ru/oauth/authorize';
+        return 'https://oauth.mail.ru/login';
     }
 
     /**
