@@ -6,6 +6,7 @@ use League\OAuth2\Client\Provider\ResourceOwnerInterface;
 
 class MailruResourceOwner implements ResourceOwnerInterface
 {
+
     /**
      * Response
      *
@@ -21,7 +22,7 @@ class MailruResourceOwner implements ResourceOwnerInterface
      */
     public function __construct(array $response)
     {
-        $this->response = $response[0];
+        $this->response = $response;
     }
 
     /**
@@ -29,7 +30,7 @@ class MailruResourceOwner implements ResourceOwnerInterface
      */
     public function getId()
     {
-        return $this->response['uid'];
+        return $this->response['id'];
     }
 
     /**
@@ -81,7 +82,7 @@ class MailruResourceOwner implements ResourceOwnerInterface
      */
     public function getNickname()
     {
-        return $this->response['nick'];
+        return $this->response['nickname'];
     }
 
     /**
@@ -91,7 +92,7 @@ class MailruResourceOwner implements ResourceOwnerInterface
      */
     public function getImageUrl()
     {
-        return ($this->response['has_pic']) ? $this->response['pic'] : '' ;
+        return $this->response['image'] ?: '';
     }
 
     /**
@@ -101,44 +102,7 @@ class MailruResourceOwner implements ResourceOwnerInterface
      */
     public function getGender()
     {
-        return ($this->response['sex']) ? 'female' : 'male' ;
-    }
-
-    /**
-     * User's country
-     *
-     * @return string Country name
-     */
-    public function getCountry()
-    {
-        return (isset($this->response['location']['country']['name']))
-            ? $this->response['location']['country']['name'] : '';
-    }
-
-    /**
-     * User's city
-     *
-     * @return string City name
-     */
-    public function getCity()
-    {
-        return (isset($this->response['location']['city']['name']))
-            ? $this->response['location']['city']['name'] : '';
-    }
-
-    /**
-     * User's location
-     *
-     * Returns city or concatenation of country and city
-     *
-     * @return string Location
-     */
-    public function getLocation()
-    {
-        $country = $this->getCountry();
-        $city = $this->getCity();
-
-        return (empty($country)) ? $city : $country . ', ' . $city;
+        return $this->response['gender'] === 'f' ? 'female' : 'male' ;
     }
 
     /**
@@ -148,4 +112,5 @@ class MailruResourceOwner implements ResourceOwnerInterface
     {
         return $this->response;
     }
+
 }

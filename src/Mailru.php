@@ -13,7 +13,7 @@ class Mailru extends AbstractProvider
      */
     public function getBaseAuthorizationUrl()
     {
-        return 'https://connect.mail.ru/oauth/authorize';
+        return 'https://oauth.mail.ru/login';
     }
 
     /**
@@ -21,7 +21,7 @@ class Mailru extends AbstractProvider
      */
     public function getBaseAccessTokenUrl(array $params)
     {
-        return 'https://connect.mail.ru/oauth/token';
+        return 'https://oauth.mail.ru/token';
     }
 
     /**
@@ -29,9 +29,7 @@ class Mailru extends AbstractProvider
      */
     public function getResourceOwnerDetailsUrl(AccessToken $token)
     {
-        $param = 'app_id=' . $this->clientId . '&method=users.getInfo&secure=1&session_key=' . $token->getToken();
-        $sign = md5(str_replace('&', '', $param) . $this->clientSecret);
-        return 'http://www.appsmail.ru/platform/api?' . $param . '&sig=' . $sign;
+        return 'https://oauth.mail.ru/userinfo?access_token=' . $token->getToken();
     }
 
     /**
@@ -49,9 +47,15 @@ class Mailru extends AbstractProvider
     {
         if (isset($data['error_code'])) {
             throw new IdentityProviderException($data['error_msg'], $data['error_code'], $response);
-        } elseif (isset($data['error'])) {
-            throw new IdentityProviderException($data['error'],
-                $response->getStatusCode(), $response);
+        }
+        elseif (isset($data['error'])) {
+          $error = $data['error'];
+
+          if (is_array($error)) {
+            $error = $error['message'];
+          }
+
+          throw new IdentityProviderException($error, $response->getStatusCode(), $response);
         }
     }
 
